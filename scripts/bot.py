@@ -26,6 +26,7 @@ maxRange = 3
 minRange = 0
 
 bot_pose = None
+init_bot_pose = []
 beacon_pose = None
 bot_motion = None
 homing_signal = None
@@ -146,9 +147,10 @@ def process_sensor_info(data):
 
 
 def check_init_config():
-    global bot_pose, beacon_pose, init_config_complete
+    global bot_pose, beacon_pose, init_config_complete, init_bot_pose
     if bot_pose is not None and beacon_pose is not None:
         init_config_complete = True
+        init_bot_pose = [bot_pose.position.x, bot_pose.position.y]
         bot_bug2()
 
 
