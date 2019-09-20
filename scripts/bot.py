@@ -31,9 +31,10 @@ beacon_pose = None
 bot_motion = None
 homing_signal = None
 init_config_complete = False
+wall_hit_point = None
 beacon_found = False
 twist = Twist()
-goal_distance = 0
+distance_moved = 0
 
 wall_follow_mode = False
 line_point_found = False
@@ -67,17 +68,15 @@ def look_towards(des_pos):
         currentBotState = BotState.GOAL_SEEK
 
 
-
-
-
 def goal_seek():
-    global zone_F, currentBotState
+    global zone_F, currentBotState, bot_pose, wall_hit_point
     # zone_F = numpy.array(zone_F)
     obstacle_in_front = numpy.any((zone_F < 0.75))
     # Or find the minimum value in this zone. or maybe numpy.any would be faster
-    #print(obstacle_in_front)
+    # print(obstacle_in_front)
     if obstacle_in_front:
         twist.linear.x = 0
+        wall_hit_point = bot_pose.position
         currentBotState = BotState.WALL_FOLLOW
     else:
         twist.angular.z = 0
@@ -86,33 +85,45 @@ def goal_seek():
 
 
 def wall_follow():
-    global wall_follow_mode, line_point_found, twist, bot_pose, bot_motion
+    global wall_follow_mode, line_point_found, twist, bot_pose, bot_motion, currentBotState, distance_moved, wall_hit_point
     wall_follow_mode = True
     line_point_found = False
 
+    # Todo: Tune the parameters.
     # maybe turn right until zone_F is clear
     # Wall follow enter
+    # Optimize this piece of logic
     obstacle_in_front = numpy.any((zone_F < 0.75))
-    if obstacle_in_front:
+    distance_moved = math.sqrt(pow(bot_pose.position.y - wall_hit_point.y, 2) + pow(bot_pose.position.x - wall_hit_point.x, 2))
+    # print(line_distance(), distance_moved, (line_distance() < 0.2 and distance_moved > 0.5))
+    if line_distance() < 0.2 and distance_moved > 0.5:
+        print("line_hit")
+        print(distance_moved)
+        # found line point. rotate and move forward
+        twist.angular.z = 0
+        twist.linear.x = 0
+        currentBotState = BotState.LOOK_TOWARDS
+    elif obstacle_in_front:  # turn right
         twist.angular.z = -0.5
         twist.linear.x = 0
-    else:
-        twist.angular.z = 0
-        twist.linear.x = 0.5
-    bot_motion.publish(twist)
-
-
-def move_forward():
-    global wall_follow_mode, line_point_found, twist, bot_pose, currentBotState
-
-    obstacle_in_front = numpy.any((zone_F < 0.75))
-    if obstacle_in_front:
+    elif numpy.all((zone_FL >= 2)):  # turn left maybe TODO: what if there's wall on left and right both sides.
+        twist.angular.z = 0.5
         twist.linear.x = 0
-        currentBotState = BotState.WALL_FOLLOW
+    else:
+        twist.angular.z = 0  # move forward
+        twist.linear.x = 0.5
 
-    twist.linear.x = 0.5
     bot_motion.publish(twist)
 
+
+def line_distance():
+    global init_bot_pose, beacon_pose, bot_pose
+    point_1 = init_bot_pose  # in form of array
+    point_2 = beacon_pose.position
+    point_k = bot_pose.position
+    numerator = math.fabs((point_2.y - point_1[1]) * point_k.x - (point_2.x - point_1[0]) * point_k.y + (point_2.x * point_1[1]) - (point_2.y * point_1[0]))
+    denominator = math.sqrt(pow(point_2.y - point_1[1], 2) + pow(point_2.x - point_1[0], 2))
+    return numerator / denominator
 
 
 def callback(msg):
@@ -125,10 +136,14 @@ def callback(msg):
 
 
 def get_base_truth(bot_data):
-    global bot_pose
+    global bot_pose, beacon_found
     bot_pose = bot_data.pose.pose
     if not init_config_complete:
         check_init_config()
+    goal_distance = math.sqrt(pow(bot_pose.position.y - beacon_pose.position.y, 2) + pow(bot_pose.position.x - beacon_pose.position.x, 2))
+    if goal_distance <= 0.2:
+        beacon_found = True
+
 
 # ToDo: merge these two functions with type check conditions get_base_truth and Process_sensor_info
 
