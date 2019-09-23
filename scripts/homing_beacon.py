@@ -17,7 +17,8 @@ def talker():
 
     while not rospy.is_shutdown():
         home_pose.header.stamp = rospy.Time.now()
-
+        print("pub.get_num_connections()")
+        print(pub.get_num_connections())
         pub.publish(home_pose)
         rate.sleep()
 

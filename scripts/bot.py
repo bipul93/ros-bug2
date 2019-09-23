@@ -20,7 +20,8 @@ class BotState(enum.Enum):
 
 
 yaw = 0
-yaw_threshold = math.pi / 90 # +/- 2 degree allowed
+yaw_threshold = math.pi / 90
+goal_distance_threshold = 0.25
 currentBotState = BotState.LOOK_TOWARDS
 maxRange = 3
 minRange = 0
@@ -90,7 +91,6 @@ def wall_follow():
     # Todo: Tune the parameters.
     # maybe turn right until zone_F is clear
     # Wall follow enter
-    # Optimize this piece of logic
     obstacle_in_front = numpy.any((zone_F < front_obs_distance))
     distance_moved = math.sqrt(pow(bot_pose.position.y - wall_hit_point.y, 2) + pow(bot_pose.position.x - wall_hit_point.x, 2))
     # print(line_distance(), distance_moved, (line_distance() < 0.2 and distance_moved > 0.5))
@@ -101,7 +101,7 @@ def wall_follow():
         twist.angular.z = 0
         twist.linear.x = 0
         currentBotState = BotState.LOOK_TOWARDS
-    elif obstacle_in_front:  # turn right
+    elif obstacle_in_front or numpy.any((zone_L < 0.15)):  # turn right
         twist.angular.z = -0.5
         twist.linear.x = 0
     elif numpy.all((zone_FL >= left_obs_distance)):  # turn left TODO: what if there's wall on left and right both sides.
@@ -125,7 +125,6 @@ def line_distance():
 
 
 def callback(msg):
-    print('CHECKING .....')
     global beacon_pose
     beacon_pose = msg.pose
     check_init_config()
@@ -134,15 +133,15 @@ def callback(msg):
 
 
 def get_base_truth(bot_data):
-    global bot_pose, beacon_found
+    global bot_pose, beacon_found, goal_distance_threshold
     bot_pose = bot_data.pose.pose
     if not init_config_complete:
         check_init_config()
 
     if beacon_pose is not None:
         goal_distance = math.sqrt(pow(bot_pose.position.y - beacon_pose.position.y, 2) + pow(bot_pose.position.x - beacon_pose.position.x, 2))
-        print(goal_distance)
-        if goal_distance <= 0.25:
+        # print(goal_distance)
+        if goal_distance <= goal_distance_threshold:
             beacon_found = True
 
 
