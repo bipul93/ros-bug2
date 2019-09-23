@@ -36,8 +36,8 @@ beacon_found = False
 twist = Twist()
 distance_moved = 0
 
-wall_follow_mode = False
-line_point_found = False
+front_obs_distance = None
+left_obs_distance = None
 
 
 def normalize(angle):
@@ -69,9 +69,9 @@ def look_towards(des_pos):
 
 
 def goal_seek():
-    global zone_F, currentBotState, bot_pose, wall_hit_point
+    global zone_F, currentBotState, bot_pose, wall_hit_point, front_obs_distance, left_obs_distance
     # zone_F = numpy.array(zone_F)
-    obstacle_in_front = numpy.any((zone_F < 0.75))
+    obstacle_in_front = numpy.any((zone_F < front_obs_distance))
     # Or find the minimum value in this zone. or maybe numpy.any would be faster
     # print(obstacle_in_front)
     if obstacle_in_front:
@@ -85,15 +85,13 @@ def goal_seek():
 
 
 def wall_follow():
-    global wall_follow_mode, line_point_found, twist, bot_pose, bot_motion, currentBotState, distance_moved, wall_hit_point
-    wall_follow_mode = True
-    line_point_found = False
+    global twist, bot_pose, bot_motion, currentBotState, distance_moved, wall_hit_point
 
     # Todo: Tune the parameters.
     # maybe turn right until zone_F is clear
     # Wall follow enter
     # Optimize this piece of logic
-    obstacle_in_front = numpy.any((zone_F < 0.75))
+    obstacle_in_front = numpy.any((zone_F < front_obs_distance))
     distance_moved = math.sqrt(pow(bot_pose.position.y - wall_hit_point.y, 2) + pow(bot_pose.position.x - wall_hit_point.x, 2))
     # print(line_distance(), distance_moved, (line_distance() < 0.2 and distance_moved > 0.5))
     if line_distance() < 0.2 and distance_moved > 0.5:
@@ -106,7 +104,7 @@ def wall_follow():
     elif obstacle_in_front:  # turn right
         twist.angular.z = -0.5
         twist.linear.x = 0
-    elif numpy.all((zone_FL >= 2)):  # turn left maybe TODO: what if there's wall on left and right both sides.
+    elif numpy.all((zone_FL >= left_obs_distance)):  # turn left TODO: what if there's wall on left and right both sides.
         twist.angular.z = 0.5
         twist.linear.x = 0
     else:
@@ -140,25 +138,44 @@ def get_base_truth(bot_data):
     bot_pose = bot_data.pose.pose
     if not init_config_complete:
         check_init_config()
-    goal_distance = math.sqrt(pow(bot_pose.position.y - beacon_pose.position.y, 2) + pow(bot_pose.position.x - beacon_pose.position.x, 2))
-    if goal_distance <= 0.2:
-        beacon_found = True
+
+    if beacon_pose is not None:
+        goal_distance = math.sqrt(pow(bot_pose.position.y - beacon_pose.position.y, 2) + pow(bot_pose.position.x - beacon_pose.position.x, 2))
+        print(goal_distance)
+        if goal_distance <= 0.25:
+            beacon_found = True
 
 
 # ToDo: merge these two functions with type check conditions get_base_truth and Process_sensor_info
 
 
 def process_sensor_info(data):
-    global maxRange, minRange
+    global maxRange, minRange, front_obs_distance, left_obs_distance
     maxRange = data.range_max
     minRange = data.range_min
-    zone = numpy.array_split(numpy.array(data.ranges), 5)
+    # zone = numpy.array_split(numpy.array(data.ranges), 5)
     global zone_R, zone_FR, zone_F, zone_FL, zone_L
-    zone_R = zone[0]
-    zone_FR = zone[1]
-    zone_F = zone[2]
-    zone_FL = zone[3]
-    zone_L = zone[4]
+
+    # Note: Configuration one
+    # zone_R = zone[0]
+    # zone_FR = zone[1]
+    # zone_F = zone[2]
+    # zone_FL = zone[3]
+    # zone_L = zone[4]
+    # if front_obs_distance is None and left_obs_distance is None:
+    #     front_obs_distance = 0.75
+    #     left_obs_distance = 1
+
+    # Note: Configuration 2 - Breaking at uneven angles
+    zone = numpy.array(data.ranges)
+    zone_R = zone[0:60]  # 30deg
+    zone_FR = zone[61:140]
+    zone_F = zone[141-220]
+    zone_FL = zone[221:300]
+    zone_L = zone[301-361]
+    if front_obs_distance is None and left_obs_distance is None:
+        front_obs_distance = 0.75
+        left_obs_distance = 1
 
 
 def check_init_config():
@@ -187,8 +204,8 @@ def bot_bug2():
             wall_follow()
             # return
 
-        # print("Beacon not found yet")
         rate.sleep()
+    print("Beacon Found")
 
 
 def init():
