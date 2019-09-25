@@ -66,8 +66,8 @@ def look_towards(des_pos):
 
     if math.fabs(yaw_diff) > yaw_threshold:
         twist.angular.z = -0.5  # clockwise rotation if yaw_diff > 0 else 0.5  # counter-clockwise rotation
-    else:
-    # if math.fabs(yaw_diff) <= yaw_threshold:
+
+    if math.fabs(yaw_diff) <= yaw_threshold:
         twist.angular.z = 0
         currentBotState = BotState.GOAL_SEEK
     bot_motion.publish(twist)
@@ -80,7 +80,7 @@ def goal_seek():
     # obstacle_in_frontLeft = numpy.any((zone_FL <= 0.5))
     # obstacle_in_frontRight = numpy.any((zone_FR <= 0.5))
     # Or find the minimum value in this zone. or maybe numpy.any would be faster
-    print(obstacle_in_front, zone_F)
+    # print(obstacle_in_front, zone_F)
     if obstacle_in_front:
         twist.linear.x = 0
         wall_hit_point = bot_pose.position
@@ -112,7 +112,7 @@ def wall_follow():
     elif obstacle_in_front:  # turn right
         twist.angular.z = -0.5
         twist.linear.x = 0
-    elif numpy.all((zone_FL >= left_obs_distance)): #  or numpy.any((zone_FR <= 1)):  # turn left TODO: what if there's wall on left and right both sides.
+    elif numpy.all((zone_FL >= left_obs_distance)):  # or numpy.any((zone_FR <= 1)):  # turn left
         twist.angular.z = 0.5
         twist.linear.x = 0
     else:
@@ -120,36 +120,6 @@ def wall_follow():
         twist.linear.x = 0.5
 
     bot_motion.publish(twist)
-
-    # if z_FL <= 1 and z_F > 1 and z_R > 1:
-    #     twist.angular.z = -0.5
-    #     twist.linear.x = 0
-    # elif z_FL > 1 and z_F <= 1 and z_R > 1:
-    #     twist.angular.z = -0.5
-    #     twist.linear.x = 0
-    # elif z_FL > 1 and z_F > 1 and z_R <= 1:
-    #     twist.angular.z = 0.5
-    #     twist.linear.x = 0
-    # elif z_FL <= 1 and z_F <= 1 and z_R > 1:
-    #     twist.angular.z = -0.5
-    #     twist.linear.x = 0
-    # elif z_FL > 1 and z_F <= 1 and z_R <= 1:
-    #     twist.angular.z = 0.5
-    #     twist.linear.x = 0
-    # elif z_FL <= 1 and z_F > 1 and z_R <= 1:
-    #     twist.angular.z = 0
-    #     twist.linear.x = 0.5
-    # elif z_FL <= 1 and z_F <= 1 and z_R <= 1:
-    #     if numpy.any((zone_R > 1)):
-    #         twist.angular.z = -0.5
-    #     elif numpy.any((zone_L > 1)):
-    #         twist.angular.z = 0.5
-    #     else:
-    #         twist.angular.z = 0
-    #     twist.linear.x = 0
-    # else:
-    #     twist.angular.z = 0
-    #     twist.linear.x = 0.5
 
 
 def line_distance():
@@ -181,9 +151,6 @@ def get_base_truth(bot_data):
         # print(goal_distance)
         if goal_distance <= goal_distance_threshold:
             beacon_found = True
-
-
-# ToDo: merge these two functions with type check conditions get_base_truth and Process_sensor_info
 
 
 def process_sensor_info(data):
